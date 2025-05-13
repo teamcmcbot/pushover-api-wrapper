@@ -1,10 +1,23 @@
 *.swp
 package-lock.json
-__pycache__
-.pytest_cache
-.venv
-*.egg-info
 
-# CDK asset staging directory
-.cdk.staging
-cdk.out
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+*.egg-info
+.mypy_cache/
+
+# CDK
+.cdk.staging/
+cdk.out/
+
+# Env and secrets
+.env
+
+# Local test scripts
+lambda/test_*.py
+
+# Build artifacts
+dist/
+build/

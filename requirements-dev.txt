@@ -1,1 +1,16 @@
-pytest==6.2.5
+-r requirements.txt
+
+# AWS SDK (preinstalled in Lambda, needed for local test/dev)
+boto3
+botocore
+s3transfer
+jmespath
+
+# Formatting & Linting
+black
+isort
+pylint
+
+# Testing
+pytest
+python-dotenv
