@@ -1,5 +1,6 @@
 *.swp
 package-lock.json
+.DS_Store
 
 # Python
 __pycache__/
@@ -21,3 +22,13 @@ lambda/test_*.py
 # Build artifacts
 dist/
 build/
+
+# Ignore everything in layer/python
+layer/python/**
+
+# Keep only your code and requirements file
+!layer/python/*.py
+!layer/python/requirements.txt
+
+# Re-ignore installed packages that happen to be .py files
+layer/python/typing_extensions.py

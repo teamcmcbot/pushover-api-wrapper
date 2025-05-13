@@ -1,65 +1,3 @@
-
-# Welcome to your CDK Python project!
-
-This is a blank project for CDK development with Python.
-
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
-
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
-
-To manually create a virtualenv on MacOS and Linux:
-
-```
-$ python3 -m venv .venv
-```
-
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
-
-```
-$ source .venv/bin/activate
-```
-
-If you are a Windows platform, you would activate the virtualenv like this:
-
-```
-% .venv\Scripts\activate.bat
-```
-
-Once the virtualenv is activated, you can install the required dependencies.
-
-```
-$ pip install -r requirements.txt
-```
-
-At this point you can now synthesize the CloudFormation template for this code.
-
-```
-$ cdk synth
-```
-
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
-
-## Useful commands
-
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
-
-Enjoy!
-
-
----
-
 # 📦 Pushover API Wrapper (AWS CDK - Python)
 
 This project wraps the [Pushover](https://pushover.net/) API in an AWS Lambda function and exposes it via **Amazon API Gateway**. It's built with **AWS CDK (Python)** and demonstrates best practices including:
@@ -79,13 +17,16 @@ This project wraps the [Pushover](https://pushover.net/) API in an AWS Lambda fu
 ├── app.py                       # CDK app entrypoint
 ├── cdk.json                     # CDK context + app config
 ├── requirements.txt             # CDK + runtime dependencies
-├── requirements-dev.txt         # Dev + test dependencies
+├── requirements-dev.txt        # Dev + test dependencies
 ├── src/                         # Lambda handler entrypoint
 │   └── handler.py
-├── layer/                       # Lambda Layer
-│   ├── pushover_model.py
-│   └── pushover_utils.py
-├── schemas/                     # JSON schema for request validation
+├── layer/                       # Lambda Layer root
+│   └── python/                  # Python folder required by Lambda Layer structure
+│       ├── pushover_model.py
+│       ├── pushover_utils.py
+│       └── requirements.txt     # Layer-specific dependencies (e.g. pydantic, requests)
+├── build_layer.sh               # 🐳 Docker-based script to build layer for correct architecture
+├── schemas/                     # JSON schema (optional, not currently used in CDK)
 │   └── pushover_schema.json
 ├── pushover_api_wrapper/       
 │   └── pushover_api_wrapper_stack.py
@@ -111,7 +52,31 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate.bat
 pip install -r requirements-dev.txt
 ```
 
-### 3. Configure AWS Credentials
+### 3. Install Lambda Layer Dependencies
+
+```bash
+cd layer/python
+pip install -r requirements.txt -t .
+````
+
+---
+
+## 🧱 Build Lambda Layer (Docker-safe for AWS Lambda x86\_64)
+
+Since your local machine (e.g. M1/M2 Mac) may not match AWS Lambda’s runtime architecture, use Docker to build your layer dependencies correctly:
+
+```bash
+./build_layer.sh
+```
+
+This script:
+
+* 🧹 Cleans existing dependencies in `layer/python/`
+* 🐳 Installs Python packages using the `public.ecr.aws/sam/build-python3.12` image
+* ✅ Ensures architecture compatibility with AWS Lambda (`linux/x86_64`)
+* 🔍 Verifies that `pydantic_core/_pydantic_core.cpython-312-x86_64-linux-gnu.so` is present
+
+### 4. Configure AWS Credentials
 
 ```bash
 aws configure
@@ -122,6 +87,12 @@ Ensure `~/.aws/credentials` is set correctly. CDK uses these for deployments.
 ---
 
 ## 🚀 Deployment
+
+### Bootstrap CDK (One-time setup per account/region)
+
+```bash
+cdk bootstrap
+```
 
 ### Synthesize CloudFormation
 
@@ -180,7 +151,55 @@ Once deployed, use tools like `curl` or Postman:
 ```bash
 curl -X POST https://<your-api>/prod/message \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hello from Lambda"}'
+  -d '{"message": "Hello from Lambda", "title": "PushOver API Test"}'
+```
+
+---
+
+
+
+## ⚙️ Custom CDK Deploy Script
+
+To simplify deployments and verify the deployed API is working, use the provided helper script:
+
+```bash
+./cdk_deploy.sh <stage>
+```
+
+For example:
+
+```bash
+./cdk_deploy.sh prod
+```
+
+This script:
+
+* Deploys the CDK stack using the provided stage context.
+* Extracts the deployed API Gateway URL from the CloudFormation outputs.
+* Sends a test `POST /message` request to verify the deployment.
+* Automatically sets:
+
+  * **Title**: `CDK Deploy <stage>`
+  * **Message**: `Shakedown successful at <timestamp>` (based on Singapore time)
+
+---
+
+### 📦 Prerequisites
+
+Ensure you have the following CLI tools installed:
+
+* **jq**: Used to format and send the JSON payload to the API.
+
+Install it via Homebrew (macOS):
+
+```bash
+brew install jq
+```
+
+You can also verify installation:
+
+```bash
+jq --version
 ```
 
 ---

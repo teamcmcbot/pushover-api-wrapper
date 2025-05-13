@@ -8,6 +8,8 @@ from aws_cdk import (
 from constructs import Construct
 import json
 from pathlib import Path
+from aws_cdk.aws_apigateway import JsonSchema, JsonSchemaType
+from aws_cdk import CfnOutput
 
 
 class PushoverApiWrapperStack(Stack):
@@ -24,6 +26,7 @@ class PushoverApiWrapperStack(Stack):
             code=_lambda.Code.from_asset("layer"),
             compatible_runtimes=[_lambda.Runtime.PYTHON_3_12],
             description="Pushover utils and Pydantic model",
+            layer_version_name=f"pushover-utils-v2-{stage_name}",  # 🔧 custom layer name
             removal_policy=None,  # optional: you can set to DESTROY for dev
         )
 
@@ -31,6 +34,8 @@ class PushoverApiWrapperStack(Stack):
         lambda_function = _lambda.Function(
             self,
             "PushoverLambdaFunction",
+            function_name=f"pushover-api-wrapper-{stage_name}",  # 🔧 custom function name
+            description="Pushover API wrapper Lambda function",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.lambda_handler",
             code=_lambda.Code.from_asset("src"),
@@ -53,6 +58,7 @@ class PushoverApiWrapperStack(Stack):
         api = apigw.RestApi(
             self,
             "PushoverApi",
+            rest_api_name=f"PushoverApi-{stage_name}",  # 🔧 custom API Gateway name
             deploy_options=apigw.StageOptions(stage_name=stage_name),
         )
 
@@ -66,7 +72,33 @@ class PushoverApiWrapperStack(Stack):
             "PushoverRequestModel",
             rest_api=api,
             content_type="application/json",
-            schema=apigw.JsonSchema.from_dict(pushover_schema),
+            schema=JsonSchema(
+                title="PushoverRequest",
+                type=JsonSchemaType.OBJECT,
+                required=["message"],
+                properties={
+                    "token": JsonSchema(type=JsonSchemaType.STRING),
+                    "user": JsonSchema(type=JsonSchemaType.STRING),
+                    "message": JsonSchema(type=JsonSchemaType.STRING),
+                    "title": JsonSchema(type=JsonSchemaType.STRING),
+                    "device": JsonSchema(type=JsonSchemaType.STRING),
+                    "html": JsonSchema(
+                        type=JsonSchemaType.INTEGER,
+                        enum=[0, 1],
+                    ),
+                    "priority": JsonSchema(
+                        type=JsonSchemaType.INTEGER,
+                        enum=[-2, -1, 0, 1, 2],
+                    ),
+                    "sound": JsonSchema(type=JsonSchemaType.STRING),
+                    "timestamp": JsonSchema(type=JsonSchemaType.INTEGER),
+                    "url": JsonSchema(type=JsonSchemaType.STRING),
+                    "url_title": JsonSchema(type=JsonSchemaType.STRING),
+                    "ttl": JsonSchema(type=JsonSchemaType.INTEGER),
+                    "attachment_base64": JsonSchema(type=JsonSchemaType.STRING),
+                    "attachment_type": JsonSchema(type=JsonSchemaType.STRING),
+                },
+            ),
         )
 
         # Define POST /message endpoint
@@ -82,3 +114,10 @@ class PushoverApiWrapperStack(Stack):
 
         # Optional: output the API URL
         self.api_url_output = api.url
+
+        CfnOutput(
+            self,
+            "PushoverApiEndpoint",
+            value=api.url,
+            export_name=f"{stage_name}-PushoverApiEndpoint",
+        )
